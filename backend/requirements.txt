@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 requests
-pydantic
 python-dotenv
-streamlit
+pydantic
+crewai
+langchain-groq

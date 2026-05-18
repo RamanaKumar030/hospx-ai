@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const API = "https://hospx-ai-1.onrender.com";
+const API = "https://hospx-ai-2.onrender.com";
 
 export default function Home() {
   const [symptoms, setSymptoms] = useState("");

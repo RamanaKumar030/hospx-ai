@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-crewai==0.41.1
-langchain-groq
+requests
+pydantic
 python-dotenv
-groq
+streamlit

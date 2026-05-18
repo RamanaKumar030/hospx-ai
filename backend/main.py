@@ -1,23 +1,48 @@
 import uvicorn
 import requests
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
 from crew_ai.crew import run_crew
 
-app = FastAPI()
+
+app = FastAPI(
+    title="HOSPX AI",
+    description="Emergency Medical Intelligence System",
+    version="1.0.0"
+)
+
+# ---------- CORS ----------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # ---------- MODELS ----------
 class SymptomRequest(BaseModel):
     symptoms: str
 
+
 class LocationRequest(BaseModel):
     lat: float
     lon: float
 
+
 # ---------- HEALTH CHECK ----------
 @app.get("/")
 def home():
-    return {"status": "HOSPX AI running"}
+    return {
+        "system": "HOSPX AI",
+        "status": "running",
+        "message": "Backend is live"
+    }
+
 
 # ---------- AI ROUTE ----------
 @app.post("/symptom-analysis")
@@ -29,6 +54,7 @@ def symptom_analysis(request: SymptomRequest):
         "status": "success",
         "result": result
     }
+
 
 # ---------- LOCATION ROUTE ----------
 @app.post("/nearby-hospitals")
@@ -72,7 +98,6 @@ def nearby_hospitals(request: LocationRequest):
                 "type": tags.get("amenity") or tags.get("healthcare", "hospital")
             })
 
-        # 🔥 IMPORTANT FALLBACK (THIS FIXES YOUR ISSUE)
         if len(places) == 0:
             places = [
                 {"name": "Apollo Hospital (Demo)", "type": "hospital"},
@@ -93,5 +118,7 @@ def nearby_hospitals(request: LocationRequest):
                 {"name": "Emergency Hospital (Offline Mode)", "type": "hospital"}
             ]
         }
+
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000)

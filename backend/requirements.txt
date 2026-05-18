@@ -3,5 +3,6 @@ uvicorn
 requests
 python-dotenv
 pydantic
-crewai
+crewai==0.11.2
 langchain-groq
+tiktoken==0.5.2

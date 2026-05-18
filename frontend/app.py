@@ -121,7 +121,7 @@ with center:
 
                 try:
                     res = requests.post(
-                        "http://127.0.0.1:8000/symptom-analysis",
+                        "https://hospx-ai-1.onrender.com/symptom-analysis",
                         json={"symptoms": symptoms},
                         timeout=30
                     )
@@ -177,7 +177,7 @@ with center:
 
                         try:
                             loc = requests.post(
-                                "http://127.0.0.1:8000/nearby-hospitals",
+                                "https://hospx-ai-1.onrender.com/nearby-hospitals",
                                 json={"lat": 12.9716, "lon": 77.5946},
                                 timeout=20
                             )

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const API = "https://hospx-ai-2.onrender.com";
+const API = "http://127.0.0.1:8000";
 
 export default function Home() {
   const [symptoms, setSymptoms] = useState("");
@@ -10,6 +10,36 @@ export default function Home() {
   const [result, setResult] = useState<any>(null);
   const [places, setPlaces] = useState<any[]>([]);
   const [error, setError] = useState("");
+  const [locationStatus, setLocationStatus] = useState("Location not requested");
+
+  async function getUserLocation(): Promise<{ lat: number; lon: number }> {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        setLocationStatus("GPS not supported. Using default location.");
+        resolve({ lat: 12.9716, lon: 77.5946 });
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLocationStatus("Using your current location");
+          resolve({
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+          });
+        },
+        () => {
+          setLocationStatus("Location permission denied. Using default location.");
+          resolve({ lat: 12.9716, lon: 77.5946 });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    });
+  }
 
   async function analyze() {
     if (!symptoms.trim()) return;
@@ -22,11 +52,17 @@ export default function Home() {
     const start = performance.now();
 
     try {
+      const coords = await getUserLocation();
+
       const res = await fetch(`${API}/symptom-analysis`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ symptoms }),
       });
+
+      if (!res.ok) {
+        throw new Error("Backend error");
+      }
 
       const data = await res.json();
       const latency = ((performance.now() - start) / 1000).toFixed(2);
@@ -36,10 +72,12 @@ export default function Home() {
       const loc = await fetch(`${API}/nearby-hospitals`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lat: 12.9716, lon: 77.5946 }),
+        body: JSON.stringify(coords),
       });
 
       const locData = await loc.json();
+      console.log("LOCATION RESPONSE:", locData);
+      alert(JSON.stringify(locData, null, 2));
       setPlaces(locData.places || []);
     } catch {
       setError("Backend not reachable. Please try again.");
@@ -82,6 +120,8 @@ export default function Home() {
             >
               {loading ? "ANALYZING..." : "RUN EMERGENCY TRIAGE"}
             </button>
+
+            <p className="mt-4 text-sm text-slate-400">{locationStatus}</p>
           </aside>
 
           <section className="rounded-3xl border border-slate-800 bg-slate-950/70 backdrop-blur-xl p-6 shadow-2xl">
@@ -146,7 +186,25 @@ export default function Home() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-slate-400">No nearby data found</p>
+                    <div className="space-y-3">
+  <a
+    href={`https://www.google.com/maps/search/hospitals+near+me`}
+    target="_blank"
+    className="block rounded-2xl bg-red-600/20 border border-red-500 p-4 hover:scale-[1.02] transition"
+  >
+    <p className="font-bold">Find Nearby Hospitals</p>
+    <p className="text-slate-300 text-sm">Open real hospitals near your current location in Google Maps</p>
+  </a>
+
+  <a
+    href={`https://www.google.com/maps/search/pharmacy+near+me`}
+    target="_blank"
+    className="block rounded-2xl bg-sky-600/20 border border-sky-500 p-4 hover:scale-[1.02] transition"
+  >
+    <p className="font-bold">Find Nearby Pharmacies</p>
+    <p className="text-slate-300 text-sm">Open real medical stores near your current location in Google Maps</p>
+  </a>
+</div>
                   )}
                 </div>
               </>
@@ -167,7 +225,7 @@ export default function Home() {
 
             <Panel title="Emergency Tools">
               <p>Ambulance: 108 India</p>
-              <p>Hospitals: Auto-detect enabled</p>
+              <p>Hospitals: GPS-based search</p>
               <p>Pharmacy: Nearby search ready</p>
             </Panel>
           </aside>
@@ -186,7 +244,13 @@ function Metric({ title, value }: { title: string; value: string }) {
   );
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-3xl border border-slate-800 bg-slate-950/70 backdrop-blur-xl p-6 shadow-2xl">
       <h3 className="text-xl font-bold mb-4">{title}</h3>

@@ -60,65 +60,94 @@ def symptom_analysis(request: SymptomRequest):
 @app.post("/nearby-hospitals")
 def nearby_hospitals(request: LocationRequest):
 
-    try:
-        lat = request.lat
-        lon = request.lon
+    lat = request.lat
+    lon = request.lon
 
-        url = "https://overpass-api.de/api/interpreter"
+    query = f"""
+    [out:json][timeout:25];
+    (
+      node["amenity"~"hospital|clinic|pharmacy|doctors"](around:50000,{lat},{lon});
+      way["amenity"~"hospital|clinic|pharmacy|doctors"](around:50000,{lat},{lon});
+      relation["amenity"~"hospital|clinic|pharmacy|doctors"](around:50000,{lat},{lon});
 
-        query = f"""
-        [out:json][timeout:25];
-        (
-          node["amenity"~"hospital|clinic|doctors"](around:50000,{lat},{lon});
-          node["healthcare"~"hospital|clinic"](around:50000,{lat},{lon});
-        );
-        out center;
-        """
+      node["healthcare"~"hospital|clinic|doctor|pharmacy"](around:50000,{lat},{lon});
+      way["healthcare"~"hospital|clinic|doctor|pharmacy"](around:50000,{lat},{lon});
+      relation["healthcare"~"hospital|clinic|doctor|pharmacy"](around:50000,{lat},{lon});
+    );
+    out center;
+    """
 
-        response = requests.post(
-            url,
-            data=query.encode("utf-8"),
-            headers={"Content-Type": "text/plain"},
-            timeout=20
-        )
+    overpass_servers = [
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.openstreetmap.ru/api/interpreter"
+    ]
 
-        data = response.json()
+    last_error = ""
 
-        places = []
+    for url in overpass_servers:
+        try:
+            response = requests.post(
+                url,
+                data={"data": query},
+                headers={
+                    "User-Agent": "HOSPX-AI/1.0",
+                    "Accept": "application/json"
+                },
+                timeout=30
+            )
 
-        for el in data.get("elements", []):
-            tags = el.get("tags", {})
+            text = response.text.strip()
 
-            name = tags.get("name")
-            if not name:
+            if response.status_code != 200:
+                last_error = f"{url} returned HTTP {response.status_code}"
                 continue
 
-            places.append({
-                "name": name,
-                "type": tags.get("amenity") or tags.get("healthcare", "hospital")
-            })
+            if not text.startswith("{"):
+                last_error = f"{url} returned non-json: {text[:120]}"
+                continue
 
-        if len(places) == 0:
-            places = [
-                {"name": "Apollo Hospital (Demo)", "type": "hospital"},
-                {"name": "Fortis Hospital (Demo)", "type": "hospital"},
-                {"name": "City General Clinic (Demo)", "type": "clinic"},
-            ]
+            data = response.json()
 
-        return {
-            "status": "success",
-            "places": places
-        }
+            places = []
 
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e),
-            "places": [
-                {"name": "Emergency Hospital (Offline Mode)", "type": "hospital"}
-            ]
-        }
+            for el in data.get("elements", []):
+                tags = el.get("tags", {})
+                name = tags.get("name")
 
+                if not name:
+                    continue
+
+                center = el.get("center", {})
+
+                places.append({
+                    "name": name,
+                    "type": tags.get("amenity") or tags.get("healthcare") or "medical",
+                    "lat": el.get("lat") or center.get("lat"),
+                    "lon": el.get("lon") or center.get("lon"),
+                })
+
+            if places:
+                return {
+                    "status": "success",
+                    "source": url,
+                    "places": places[:10]
+                }
+
+            last_error = f"{url} returned zero places"
+
+        except Exception as e:
+            last_error = str(e)
+
+    return {
+        "status": "fallback",
+        "message": last_error,
+        "places": [
+            {"name": "Apollo Hospital (Demo)", "type": "hospital"},
+            {"name": "Fortis Hospital (Demo)", "type": "hospital"},
+            {"name": "City General Clinic (Demo)", "type": "clinic"},
+        ]
+    }
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000)

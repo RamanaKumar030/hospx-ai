@@ -76,8 +76,6 @@ export default function Home() {
       });
 
       const locData = await loc.json();
-      console.log("LOCATION RESPONSE:", locData);
-      alert(JSON.stringify(locData, null, 2));
       setPlaces(locData.places || []);
     } catch {
       setError("Backend not reachable. Please try again.");

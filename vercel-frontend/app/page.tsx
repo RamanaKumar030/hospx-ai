@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const API = "http://127.0.0.1:8000";
+const API = "https://hospx-ai-3.onrender.com";
 
 export default function Home() {
   const [symptoms, setSymptoms] = useState("");
